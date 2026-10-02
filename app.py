@@ -73,7 +73,7 @@ def extract_data_from_pdf(pdf_file):
         match = re.search(r"Clasif\.?\s*SUCS\s*[:.]?\s*([A-Z]{2})\b", text)
     data["ASTM D 2487_Codigo"] = match.group(1) if match else ""
     
-    # 11. Descripción SUCS (Súper flexible)
+    # 11. Descripción SUCS
     match = re.search(r"\b(Arcilla|Limo|Arena|Grava|Suelo)\s+([a-záéíóú\s,]+?)\s+(?:N[°º]?\s*\d+|\d+\.\d+|Mallas|Pasa|Retenido|Serie|ABERTURA)", text, re.IGNORECASE)
     if match:
         descripcion = f"{match.group(1)} {match.group(2)}".strip()
@@ -104,7 +104,6 @@ def extract_data_from_pdf(pdf_file):
         match = re.search(r"N[°º]?\s*200\s+0\.075\s+[\d\.]+\s+[\d\.]+\s+([\d\.]+)", text)
     if not match:
         match = re.search(r"([\d\.]+)\s*Material Pasante del Tamiz N[°º]?\s*200 por Lavado", text)
-    
     data["Material Pasante del Tamiz N° 200 por Lavado"] = match.group(1) if match else ""
     
     # 16. Contenido de Humedad (RESULTADO)
@@ -115,33 +114,49 @@ def extract_data_from_pdf(pdf_file):
     match = re.search(r"RESULTADO\s+(ACEPTABLE|NO ACEPTABLE)", text, re.IGNORECASE)
     data["RESULTADO"] = match.group(1).upper() if match else ""
     
-    # 18, 19 y 20. SALES SOLUBLES, CLORUROS y SULFATOS (Corregido con Anclas)
-    # Buscamos el título, y a partir de ahí, la primera línea de "Profundidad (m):" y el número que le sigue.
+    # 18, 19 y 20. SALES SOLUBLES, CLORUROS y SULFATOS (Corregido)
+    # Usamos rfind para buscar la ÚLTIMA aparición (saltando índices al inicio del PDF)
+    # y luego buscamos el número inmediatamente posterior a "Profundidad (m):"
     
     # SALES SOLUBLES TOTALES(%)
-    idx = text.find("SALES SOLUBLES TOTALES")
+    idx = text.rfind("SALES SOLUBLES")
     if idx != -1:
         sub_text = text[idx:]
-        match = re.search(r"Profundidad \(m\):\s*[\d\.]+\s*-\s*[\d\.]+\s+([\d\.]+)", sub_text)
-        data["SALES SOLUBLES TOTALES(%)"] = match.group(1) if match else ""
+        depth_match = re.search(r"Profundidad \(m\):\s*[\d\.]+\s*-\s*[\d\.]+", sub_text)
+        if depth_match:
+            val_match = re.search(r"[\d\.]+", sub_text[depth_match.end():])
+            if val_match:
+                data["SALES SOLUBLES TOTALES(%)"] = val_match.group(0)
+        else:
+            data["SALES SOLUBLES TOTALES(%)"] = ""
     else:
         data["SALES SOLUBLES TOTALES(%)"] = ""
 
     # CLORUROS
-    idx = text.find("CLORUROS EXPRESADOS COMO IÓN Cl -")
+    idx = text.rfind("CLORUROS EXPRESADOS")
     if idx != -1:
         sub_text = text[idx:]
-        match = re.search(r"Profundidad \(m\):\s*[\d\.]+\s*-\s*[\d\.]+\s+([\d\.]+)", sub_text)
-        data["CLORUROS EXPRESADOS COMO IÓN Cl -"] = match.group(1) if match else ""
+        depth_match = re.search(r"Profundidad \(m\):\s*[\d\.]+\s*-\s*[\d\.]+", sub_text)
+        if depth_match:
+            val_match = re.search(r"[\d\.]+", sub_text[depth_match.end():])
+            if val_match:
+                data["CLORUROS EXPRESADOS COMO IÓN Cl -"] = val_match.group(0)
+        else:
+            data["CLORUROS EXPRESADOS COMO IÓN Cl -"] = ""
     else:
         data["CLORUROS EXPRESADOS COMO IÓN Cl -"] = ""
 
     # SULFATOS
-    idx = text.find("SULFATOS EXPRESADOS COMO IÓN SO4")
+    idx = text.rfind("SULFATOS EXPRESADOS")
     if idx != -1:
         sub_text = text[idx:]
-        match = re.search(r"Profundidad \(m\):\s*[\d\.]+\s*-\s*[\d\.]+\s+([\d\.]+)", sub_text)
-        data["SULFATOS EXPRESADOS COMO IÓN SO4("] = match.group(1) if match else ""
+        depth_match = re.search(r"Profundidad \(m\):\s*[\d\.]+\s*-\s*[\d\.]+", sub_text)
+        if depth_match:
+            val_match = re.search(r"[\d\.]+", sub_text[depth_match.end():])
+            if val_match:
+                data["SULFATOS EXPRESADOS COMO IÓN SO4("] = val_match.group(0)
+        else:
+            data["SULFATOS EXPRESADOS COMO IÓN SO4("] = ""
     else:
         data["SULFATOS EXPRESADOS COMO IÓN SO4("] = ""
     

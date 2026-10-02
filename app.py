@@ -114,45 +114,17 @@ def extract_data_from_pdf(pdf_file):
     match = re.search(r"RESULTADO\s+(ACEPTABLE|NO ACEPTABLE)", text, re.IGNORECASE)
     data["RESULTADO"] = match.group(1).upper() if match else ""
     
-    # 18, 19 y 20. SALES SOLUBLES, CLORUROS y SULFATOS (Corregido: Filtrado Inteligente)
+    # 18, 19 y 20. SALES SOLUBLES, CLORUROS y SULFATOS (Limpieza directa)
     def get_chem_val(full_text, title):
         idx = full_text.rfind(title)
         if idx != -1:
-            # Acotar el bloque desde el título hasta la palabra "CONDICIONES" (donde empieza la temperatura)
-            end_idx = full_text.find("CONDICIONES", idx)
-            if end_idx == -1:
-                end_idx = full_text.find("El solicitante", idx)
-            if end_idx == -1:
-                end_idx = idx + 500
-                
-            block = full_text[idx:end_idx]
-            
-            # Extraer todos los números (decimales y enteros) del bloque
-            nums = re.findall(r"\d+\.\d+|\d+", block)
-            
-            valid_nums = []
-            for n in nums:
-                try:
-                    # 1. Ignorar coordenadas UTM o números de expediente (mayores a 10000)
-                    if float(n) > 10000:
-                        continue
-                    valid_nums.append(n)
-                except:
-                    pass
-            
-            # 2. Identificar la profundidad (X - Y) para ignorarla
-            depth_match = re.search(r"(\d+(?:\.\d+)?)\s*-\s*(\d+(?:\.\d+)?)", block)
-            depth_vals = []
-            if depth_match:
-                depth_vals.append(depth_match.group(1))
-                depth_vals.append(depth_match.group(2))
-                
-            # 3. Quitar la profundidad de nuestra lista de números válidos
-            final_nums = [n for n in valid_nums if n not in depth_vals]
-            
-            # 4. El resultado del ensayo es el último número que queda en la lista
-            if final_nums:
-                return final_nums[-1]
+            sub_text = full_text[idx:]
+            # Patrón directo: "Profundidad (m): X.X - Y.Y" seguido del valor (con o sin espacios)
+            match = re.search(r"Profundidad\s*\(m\):\s*[\d\.]+\s*-\s*[\d\.]+\s*([\d\.]+)", sub_text)
+            if match:
+                val = match.group(1).strip('.')
+                if val:
+                    return val
         return ""
 
     data["SALES SOLUBLES TOTALES(%)"] = get_chem_val(text, "SALES SOLUBLES")

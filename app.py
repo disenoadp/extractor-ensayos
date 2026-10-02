@@ -114,21 +114,15 @@ def extract_data_from_pdf(pdf_file):
     match = re.search(r"RESULTADO\s+(ACEPTABLE|NO ACEPTABLE)", text, re.IGNORECASE)
     data["RESULTADO"] = match.group(1).upper() if match else ""
     
-    # 18, 19 y 20. SALES SOLUBLES, CLORUROS y SULFATOS (Corregido)
-    # Usamos rfind para buscar la ÚLTIMA aparición (saltando índices al inicio del PDF)
-    # y luego buscamos el número inmediatamente posterior a "Profundidad (m):"
+    # 18, 19 y 20. SALES SOLUBLES, CLORUROS y SULFATOS (Corregido de manera definitiva)
+    # Usamos una sola búsqueda estricta: "Profundidad (m): X - Y" seguido del número bien formado.
     
     # SALES SOLUBLES TOTALES(%)
     idx = text.rfind("SALES SOLUBLES")
     if idx != -1:
         sub_text = text[idx:]
-        depth_match = re.search(r"Profundidad \(m\):\s*[\d\.]+\s*-\s*[\d\.]+", sub_text)
-        if depth_match:
-            val_match = re.search(r"[\d\.]+", sub_text[depth_match.end():])
-            if val_match:
-                data["SALES SOLUBLES TOTALES(%)"] = val_match.group(0)
-        else:
-            data["SALES SOLUBLES TOTALES(%)"] = ""
+        match = re.search(r"Profundidad \(m\):\s*[\d\.]+\s*-\s*[\d\.]+\s+(\d+(?:\.\d+)?)", sub_text)
+        data["SALES SOLUBLES TOTALES(%)"] = match.group(1) if match else ""
     else:
         data["SALES SOLUBLES TOTALES(%)"] = ""
 
@@ -136,13 +130,8 @@ def extract_data_from_pdf(pdf_file):
     idx = text.rfind("CLORUROS EXPRESADOS")
     if idx != -1:
         sub_text = text[idx:]
-        depth_match = re.search(r"Profundidad \(m\):\s*[\d\.]+\s*-\s*[\d\.]+", sub_text)
-        if depth_match:
-            val_match = re.search(r"[\d\.]+", sub_text[depth_match.end():])
-            if val_match:
-                data["CLORUROS EXPRESADOS COMO IÓN Cl -"] = val_match.group(0)
-        else:
-            data["CLORUROS EXPRESADOS COMO IÓN Cl -"] = ""
+        match = re.search(r"Profundidad \(m\):\s*[\d\.]+\s*-\s*[\d\.]+\s+(\d+(?:\.\d+)?)", sub_text)
+        data["CLORUROS EXPRESADOS COMO IÓN Cl -"] = match.group(1) if match else ""
     else:
         data["CLORUROS EXPRESADOS COMO IÓN Cl -"] = ""
 
@@ -150,13 +139,8 @@ def extract_data_from_pdf(pdf_file):
     idx = text.rfind("SULFATOS EXPRESADOS")
     if idx != -1:
         sub_text = text[idx:]
-        depth_match = re.search(r"Profundidad \(m\):\s*[\d\.]+\s*-\s*[\d\.]+", sub_text)
-        if depth_match:
-            val_match = re.search(r"[\d\.]+", sub_text[depth_match.end():])
-            if val_match:
-                data["SULFATOS EXPRESADOS COMO IÓN SO4("] = val_match.group(0)
-        else:
-            data["SULFATOS EXPRESADOS COMO IÓN SO4("] = ""
+        match = re.search(r"Profundidad \(m\):\s*[\d\.]+\s*-\s*[\d\.]+\s+(\d+(?:\.\d+)?)", sub_text)
+        data["SULFATOS EXPRESADOS COMO IÓN SO4("] = match.group(1) if match else ""
     else:
         data["SULFATOS EXPRESADOS COMO IÓN SO4("] = ""
     

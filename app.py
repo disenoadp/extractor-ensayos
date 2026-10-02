@@ -115,13 +115,15 @@ def extract_data_from_pdf(pdf_file):
     data["RESULTADO"] = match.group(1).upper() if match else ""
     
     # 18, 19 y 20. SALES SOLUBLES, CLORUROS y SULFATOS (Corregido de manera definitiva)
-    # Usamos una sola búsqueda estricta: "Profundidad (m): X - Y" seguido del número bien formado.
+    # Se usa un patrón estricto para la profundidad: 1.70 - 4.00 (sin importar espacios), y luego el resultado.
     
     # SALES SOLUBLES TOTALES(%)
     idx = text.rfind("SALES SOLUBLES")
     if idx != -1:
         sub_text = text[idx:]
-        match = re.search(r"Profundidad \(m\):\s*[\d\.]+\s*-\s*[\d\.]+\s+(\d+(?:\.\d+)?)", sub_text)
+        match = re.search(r"Profundidad \(m\):\s*\d+(?:\.\d+)?\s*-\s*\d+(?:\.\d+)?\s*(\d+(?:\.\d+)?)", sub_text)
+        if not match:
+            match = re.search(r"SALES SOLUBLES TOTALES\s*\(%\)\s*(\d+\.\d+)", sub_text)
         data["SALES SOLUBLES TOTALES(%)"] = match.group(1) if match else ""
     else:
         data["SALES SOLUBLES TOTALES(%)"] = ""
@@ -130,7 +132,9 @@ def extract_data_from_pdf(pdf_file):
     idx = text.rfind("CLORUROS EXPRESADOS")
     if idx != -1:
         sub_text = text[idx:]
-        match = re.search(r"Profundidad \(m\):\s*[\d\.]+\s*-\s*[\d\.]+\s+(\d+(?:\.\d+)?)", sub_text)
+        match = re.search(r"Profundidad \(m\):\s*\d+(?:\.\d+)?\s*-\s*\d+(?:\.\d+)?\s*(\d+(?:\.\d+)?)", sub_text)
+        if not match:
+            match = re.search(r"CLORUROS EXPRESADOS COMO IÓN Cl -\s*\(ppm\)\s*(\d+)", sub_text)
         data["CLORUROS EXPRESADOS COMO IÓN Cl -"] = match.group(1) if match else ""
     else:
         data["CLORUROS EXPRESADOS COMO IÓN Cl -"] = ""
@@ -139,7 +143,9 @@ def extract_data_from_pdf(pdf_file):
     idx = text.rfind("SULFATOS EXPRESADOS")
     if idx != -1:
         sub_text = text[idx:]
-        match = re.search(r"Profundidad \(m\):\s*[\d\.]+\s*-\s*[\d\.]+\s+(\d+(?:\.\d+)?)", sub_text)
+        match = re.search(r"Profundidad \(m\):\s*\d+(?:\.\d+)?\s*-\s*\d+(?:\.\d+)?\s*(\d+(?:\.\d+)?)", sub_text)
+        if not match:
+            match = re.search(r"SULFATOS EXPRESADOS COMO IÓN SO4\s*\(ppm\)\s*(\d+)", sub_text)
         data["SULFATOS EXPRESADOS COMO IÓN SO4("] = match.group(1) if match else ""
     else:
         data["SULFATOS EXPRESADOS COMO IÓN SO4("] = ""

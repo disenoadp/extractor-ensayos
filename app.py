@@ -114,22 +114,23 @@ def extract_data_from_pdf(pdf_file):
     match = re.search(r"RESULTADO\s+(ACEPTABLE|NO ACEPTABLE)", text, re.IGNORECASE)
     data["RESULTADO"] = match.group(1).upper() if match else ""
     
-    # 18, 19 y 20. SALES SOLUBLES, CLORUROS y SULFATOS (Corregido: Reconstrucción de decimales)
+    # 18, 19 y 20. SALES SOLUBLES, CLORUROS y SULFATOS (Lógica a prueba de comas y espacios)
     def get_chem_val(full_text, title):
         idx = full_text.rfind(title)
         if idx != -1:
-            sub_text = full_text[idx:]
-            # Encontrar la línea de Profundidad
-            match_depth = re.search(r"Profundidad\s*\(m\):\s*[\d\.]+\s*-\s*[\d\.]+", sub_text)
+            # Acotar el bloque a 500 caracteres para no leer el siguiente ensayo
+            sub_text = full_text[idx:idx+500]
+            # Encontrar la línea de "Profundidad (m): X.XX - Y.YY"
+            match_depth = re.search(r"Profundidad\s*\(m\):\s*\d+(?:\.\d+)?\s*-\s*\d+(?:\.\d+)?", sub_text)
             if match_depth:
                 search_area = sub_text[match_depth.end():]
-                # Capturar cualquier secuencia de números, puntos y espacios (para arreglar "0 . 0506")
-                num_match = re.match(r"\s*([\d\s\.]+)", search_area)
+                # Buscar el primer número disponible, saltando comas, espacios, etc.
+                num_match = re.search(r"\d[\d\s\.]*\d|\d", search_area)
                 if num_match:
-                    val = num_match.group(1).replace(" ", "")
-                    # Limpiar puntos solos al final
-                    val = val.strip('.')
-                    if val and val != '.':
+                    val = num_match.group(0).replace(" ", "")
+                    val = val.rstrip('.')
+                    # Validar que sea un número bien formado antes de retornarlo
+                    if re.match(r"^\d+(?:\.\d+)?$", val):
                         return val
         return ""
 
@@ -193,3 +194,4 @@ if uploaded_files and len(uploaded_files) > 0:
             file_name="Resumen_Ensayos_Pavimentos_Consolidado.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+    

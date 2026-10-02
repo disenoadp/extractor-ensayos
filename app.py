@@ -114,17 +114,23 @@ def extract_data_from_pdf(pdf_file):
     match = re.search(r"RESULTADO\s+(ACEPTABLE|NO ACEPTABLE)", text, re.IGNORECASE)
     data["RESULTADO"] = match.group(1).upper() if match else ""
     
-    # 18, 19 y 20. SALES SOLUBLES, CLORUROS y SULFATOS (Limpieza directa)
+    # 18, 19 y 20. SALES SOLUBLES, CLORUROS y SULFATOS (Corregido: Reconstrucción de decimales)
     def get_chem_val(full_text, title):
         idx = full_text.rfind(title)
         if idx != -1:
             sub_text = full_text[idx:]
-            # Patrón directo: "Profundidad (m): X.X - Y.Y" seguido del valor (con o sin espacios)
-            match = re.search(r"Profundidad\s*\(m\):\s*[\d\.]+\s*-\s*[\d\.]+\s*([\d\.]+)", sub_text)
-            if match:
-                val = match.group(1).strip('.')
-                if val:
-                    return val
+            # Encontrar la línea de Profundidad
+            match_depth = re.search(r"Profundidad\s*\(m\):\s*[\d\.]+\s*-\s*[\d\.]+", sub_text)
+            if match_depth:
+                search_area = sub_text[match_depth.end():]
+                # Capturar cualquier secuencia de números, puntos y espacios (para arreglar "0 . 0506")
+                num_match = re.match(r"\s*([\d\s\.]+)", search_area)
+                if num_match:
+                    val = num_match.group(1).replace(" ", "")
+                    # Limpiar puntos solos al final
+                    val = val.strip('.')
+                    if val and val != '.':
+                        return val
         return ""
 
     data["SALES SOLUBLES TOTALES(%)"] = get_chem_val(text, "SALES SOLUBLES")

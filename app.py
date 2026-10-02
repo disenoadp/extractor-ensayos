@@ -27,7 +27,7 @@ def extract_data_from_pdf(pdf_file):
     match = re.search(r"Muestra\s+([A-Za-z0-9\-]+)", text)
     data["Muestra"] = match.group(1) if match else ""
     
-    # 3, 4 y 5. Grava, Arena y Fino (Búsqueda conjunta en la tabla de tamizado)
+    # 3, 4 y 5. Grava, Arena y Fino
     match = re.search(r"N[°º]?\s*4\s+4\.750\s+([\d\.]+)\s+[\d\.]+\s+100\.0", text)
     grava = match.group(1) if match else None
     
@@ -36,7 +36,6 @@ def extract_data_from_pdf(pdf_file):
         arena = match.group(1)
         fino = match.group(2)
         if not grava:
-            # Fallback: Grava = 100 - Arena - Fino
             try:
                 grava = round(100.0 - float(arena) - float(fino), 1)
             except:
@@ -59,7 +58,7 @@ def extract_data_from_pdf(pdf_file):
     ip = float(match.group(1)) if match else 0.0
     data["Índice Plástico (I.P)"] = f"{ip}%"
     
-    # 8. Límite Plástico (L.P) - Priorizar extracción directa, sino calcular LL - IP
+    # 8. Límite Plástico (L.P)
     match = re.search(r"LÍMITE PL[AÁ]STICO\s*\(?\s*%\s*\)?\s*([\d\.]+)", text)
     lp = float(match.group(1)) if match else (ll - ip)
     data["Límite Plástico (L.P)"] = f"{lp:.1f}%"
@@ -68,19 +67,24 @@ def extract_data_from_pdf(pdf_file):
     match = re.search(r"(A-\d+-?\d*\s*\(\s*\d+\s*\))", text)
     data["ASTM D 3282, \"Clasificación para el uso en vías transporte\" (AASHTO)"] = match.group(1) if match else ""
     
-    # 10. Clasificación SUCS
-    match = re.search(r"(?:Clasif\.?\s*SUCS|SUCS\))\s*([A-Z]{2})\b", text)
+    # 10. Clasificación SUCS (Código de 2 letras)
+    # Busca la palabra SUCS, luego salta cualquier carácter hasta encontrar un código de 2 letras mayúsculas
+    match = re.search(r"SUCS\)\s*.*?\b([A-Z]{2})\b", text)
+    if not match:
+        # Fallback si está en la sección de Proctor/CBR
+        match = re.search(r"Clasif\.?\s*SUCS\s*[:.]?\s*([A-Z]{2})\b", text)
     data["ASTM D 2487_Codigo"] = match.group(1) if match else ""
     
     # 11. Descripción SUCS
-    match = re.search(r"(Arcilla de [a-z]+ plasticidad con arena|Arena arcillosa|Limo arcilloso|Limo de [a-z]+ plasticidad|Arcilla [a-z]+)", text, re.IGNORECASE)
+    # Ampliamos los patrones de descripciones de suelos para cubrir más casos
+    match = re.search(r"(Arcilla de (?:alta|baja) plasticidad(?: con arena)?|Arena arcillosa|Limo arcilloso|Limo de (?:alta|baja) plasticidad|Arcilla limosa|Arena limosa|Grava arcillosa|Grava bien graduada|Grava mal graduada|Arena bien graduada|Arena mal graduada)", text, re.IGNORECASE)
     data["ASTM D 2487_Descripcion"] = match.group(1) if match else ""
     
     # 12. Cont. de humedad
     match = re.search(r"Cont\. de humedad\s*:?\s*([\d\.]+)\s*%?", text)
     data["Cont. de humedad"] = f"{match.group(1)}%" if match else ""
     
-    # 13. Tamaños menores a 5μm (Maneja µ y μ)
+    # 13. Tamaños menores a 5μm
     match = re.search(r"Tama[ñn]os menores a 5[µμ]m.*?=.*?([\d\.]+)", text)
     data["Tamaños menores a 5μm (0.005mm)"] = f"{match.group(1)}%" if match else ""
     
@@ -127,7 +131,6 @@ st.set_page_config(page_title="Extractor de Ensayos", layout="wide")
 st.title("📄 Extractor de Datos de Pavimentos a Excel")
 st.write("Sube uno o varios archivos PDF con los resultados de los ensayos. El sistema extraerá los datos y los apilará en un solo archivo Excel.")
 
-# Cambio clave: accept_multiple_files=True
 uploaded_files = st.file_uploader("Sube los archivos PDF aquí", type=["pdf"], accept_multiple_files=True)
 
 if uploaded_files and len(uploaded_files) > 0:
@@ -142,14 +145,12 @@ if uploaded_files and len(uploaded_files) > 0:
         except Exception as e:
             st.error(f"Ocurrió un error al procesar el archivo {uploaded_file.name}: {e}")
         
-        # Actualizar barra de progreso
         progress_bar.progress((i + 1) / len(uploaded_files))
     
     if all_data:
-        # Crear DataFrame con todas las filas apiladas
         df = pd.DataFrame(all_data)
         
-        # Renombrar columnas para que coincidan exactamente con tu Excel
+        # Renombrar columnas para coincidir con el Excel
         df = df.rename(columns={
             "ASTM D 2487_Codigo": "ASTM D 2487, \"Clasificación con propósito de ingeniería\" (SUCS)_1",
             "ASTM D 2487_Descripcion": "ASTM D 2487, \"Clasificación con propósito de ingeniería\" (SUCS)_2"
@@ -165,7 +166,6 @@ if uploaded_files and len(uploaded_files) > 0:
             df.to_excel(writer, index=False, sheet_name='Hoja1')
         processed_data = output.getvalue()
         
-        # Botón de descarga
         st.download_button(
             label="📥 Descargar archivo Excel consolidado",
             data=processed_data,

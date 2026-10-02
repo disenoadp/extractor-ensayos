@@ -114,26 +114,21 @@ def extract_data_from_pdf(pdf_file):
     match = re.search(r"RESULTADO\s+(ACEPTABLE|NO ACEPTABLE)", text, re.IGNORECASE)
     data["RESULTADO"] = match.group(1).upper() if match else ""
     
-    # 18, 19 y 20. SALES SOLUBLES, CLORUROS y SULFATOS (Corregido: Limpieza de espacios en decimales)
+    # 18, 19 y 20. SALES SOLUBLES, CLORUROS y SULFATOS (Corregido de forma definitiva)
+    # Se busca el valor ÚNICAMENTE pegado a la línea de Profundidad.
     def get_chem_val(full_text, title):
         idx = full_text.rfind(title)
         if idx != -1:
             sub_text = full_text[idx:]
-            # Encontrar la línea de Profundidad
-            match_depth = re.search(r"Profundidad \(m\):\s*[\d\.]+\s*-\s*[\d\.]+", sub_text)
-            if match_depth:
-                search_area = sub_text[match_depth.end():]
-                # Capturar cualquier secuencia de números, puntos y espacios (para arreglar 0 . 0506)
-                num_match = re.search(r"(\d[\d\s\.]*\d|\d)", search_area)
-                if num_match:
-                    val = num_match.group(1).replace(" ", "")
-                    if val.endswith('.'):
-                        val = val[:-1]
-                    return val
-            # Fallback: buscar el primer número decimal o entero del bloque
-            num_match = re.search(r"(\d+\.\d+|\d+)", sub_text)
-            if num_match:
-                return num_match.group(1)
+            # Patrón estricto: "Profundidad (m): X.XX - Y.YY <Número>"
+            # Permite espacios raros dentro de los números (ej: 0 . 0506) y luego los limpia.
+            match = re.search(r"Profundidad\s*\(m\):\s*\d+\s*\.\s*\d+\s*-\s*\d+\s*\.\s*\d+\s+(\d+\s*\.\s*\d+|\d+)", sub_text)
+            if not match:
+                # Fallback por si la profundidad no tiene decimales (ej: 1 - 4)
+                match = re.search(r"Profundidad\s*\(m\):\s*\d+\s*-\s*\d+\s+(\d+\s*\.\s*\d+|\d+)", sub_text)
+            if match:
+                # Limpiar el número de espacios internos (convertir "0 . 0506" a "0.0506")
+                return match.group(1).replace(" ", "")
         return ""
 
     data["SALES SOLUBLES TOTALES(%)"] = get_chem_val(text, "SALES SOLUBLES")

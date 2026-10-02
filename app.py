@@ -73,20 +73,19 @@ def extract_data_from_pdf(pdf_file):
         match = re.search(r"Clasif\.?\s*SUCS\s*[:.]?\s*([A-Z]{2})\b", text)
     data["ASTM D 2487_Codigo"] = match.group(1) if match else ""
     
-    # 11. Descripción SUCS (Mejorado para capturar cualquier variación de texto)
-    # Busca un texto que empiece con Arcilla, Arena, Limo o Grava y capture todo hasta que encuentre una malla (N° o número decimal)
-    match = re.search(r"\b((?:Arcilla|Limo|Arena|Grava)\s+(?:de\s+(?:alta|baja)\s+plasticidad|arcillosa|limosa|inorgánica|orgánica|bien\s+graduada|mal\s+graduada|con\s+finos|con\s+arena)[\w\sáéíóú,]+)", text, re.IGNORECASE)
-    
+    # 11. Descripción SUCS (Súper flexible)
+    # Busca la palabra, captura todo el texto descriptivo y se detiene al encontrar la tabla de mallas o números de tamiz
+    match = re.search(r"\b(Arcilla|Limo|Arena|Grava|Suelo)\s+([a-záéíóú\s,]+?)\s+(?:N[°º]?\s*\d+|\d+\.\d+|Mallas|Pasa|Retenido|Serie|ABERTURA)", text, re.IGNORECASE)
     if match:
-        # Limpiar el final de la descripción por si se coló algún número o letra de más
-        descripcion = match.group(1).strip()
-        # Quitar números o porcentajes que se hayan pegado al final
-        descripcion = re.sub(r'[\d%].*$', '', descripcion).strip()
+        # Unir la primera palabra con el resto de la descripción capturada
+        descripcion = f"{match.group(1)} {match.group(2)}".strip()
+        # Limpiar cualquier número que se haya colado por error
+        descripcion = re.sub(r'[\d°º]+.*$', '', descripcion).strip()
+        # Remover la palabra "Mallas" si se coló al final
+        descripcion = re.sub(r'\s+(Mallas|Pasa|Retenido|Serie|Abertura)$', '', descripcion, flags=re.IGNORECASE).strip()
         data["ASTM D 2487_Descripcion"] = descripcion
     else:
-        # Si no encuentra con el patrón enriquecido, buscar de forma simple para no dejarlo vacío
-        match_simple = re.search(r"documento\s+([A-Za-záéíóú\s,]+?)\s+(?:N[°º]?\s*\d|MALLAS|ASTM|PASA)", text, re.IGNORECASE)
-        data["ASTM D 2487_Descripcion"] = match_simple.group(1).strip() if match_simple else ""
+        data["ASTM D 2487_Descripcion"] = ""
     
     # 12. Cont. de humedad
     match = re.search(r"Cont\. de humedad\s*:?\s*([\d\.]+)\s*%?", text)

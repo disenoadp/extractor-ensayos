@@ -74,14 +74,10 @@ def extract_data_from_pdf(pdf_file):
     data["ASTM D 2487_Codigo"] = match.group(1) if match else ""
     
     # 11. Descripción SUCS (Súper flexible)
-    # Busca la palabra, captura todo el texto descriptivo y se detiene al encontrar la tabla de mallas o números de tamiz
     match = re.search(r"\b(Arcilla|Limo|Arena|Grava|Suelo)\s+([a-záéíóú\s,]+?)\s+(?:N[°º]?\s*\d+|\d+\.\d+|Mallas|Pasa|Retenido|Serie|ABERTURA)", text, re.IGNORECASE)
     if match:
-        # Unir la primera palabra con el resto de la descripción capturada
         descripcion = f"{match.group(1)} {match.group(2)}".strip()
-        # Limpiar cualquier número que se haya colado por error
         descripcion = re.sub(r'[\d°º]+.*$', '', descripcion).strip()
-        # Remover la palabra "Mallas" si se coló al final
         descripcion = re.sub(r'\s+(Mallas|Pasa|Retenido|Serie|Abertura)$', '', descripcion, flags=re.IGNORECASE).strip()
         data["ASTM D 2487_Descripcion"] = descripcion
     else:
@@ -91,13 +87,17 @@ def extract_data_from_pdf(pdf_file):
     match = re.search(r"Cont\. de humedad\s*:?\s*([\d\.]+)\s*%?", text)
     data["Cont. de humedad"] = f"{match.group(1)}%" if match else ""
     
-    # 13. Tamaños menores a 5μm
-    match = re.search(r"Tama[ñn]os menores a 5[µμ]m.*?=.*?([\d\.]+)", text)
-    data["Tamaños menores a 5μm (0.005mm)"] = f"{match.group(1)}%" if match else ""
-    
-    # 14. Tamaños menores a 2μm
-    match = re.search(r"Tama[ñn]os menores a 2[µμ]m.*?=.*?([\d\.]+)", text)
-    data["Tamaños menores a 2μm (0.002mm)"] = f"{match.group(1)}%" if match else ""
+    # 13 y 14. Tamaños menores a 5μm y 2μm (Corregido)
+    match_5um = re.search(r"Tama[ñn]os menores a 5[µμ]m", text)
+    if match_5um:
+        start_pos = match_5um.end()
+        # Buscar el primer y segundo porcentaje (número seguido de %) después de la etiqueta 5µm
+        percentages = re.findall(r"([\d\.]+)\s*%", text[start_pos:])
+        valid_percentages = [p for p in percentages if p != '.']
+        if len(valid_percentages) > 0:
+            data["Tamaños menores a 5μm (0.005mm)"] = f"{valid_percentages[0]}%"
+        if len(valid_percentages) > 1:
+            data["Tamaños menores a 2μm (0.002mm)"] = f"{valid_percentages[1]}%"
     
     # 15. Material Pasante del Tamiz N° 200 por Lavado
     match = re.search(r"([\d\.]+)\s*Material Pasante del Tamiz N[°º]?\s*200 por Lavado", text)

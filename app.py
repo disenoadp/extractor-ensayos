@@ -87,11 +87,10 @@ def extract_data_from_pdf(pdf_file):
     match = re.search(r"Cont\. de humedad\s*:?\s*([\d\.]+)\s*%?", text)
     data["Cont. de humedad"] = f"{match.group(1)}%" if match else ""
     
-    # 13 y 14. Tamaños menores a 5μm y 2μm (Corregido)
+    # 13 y 14. Tamaños menores a 5μm y 2μm
     match_5um = re.search(r"Tama[ñn]os menores a 5[µμ]m", text)
     if match_5um:
         start_pos = match_5um.end()
-        # Buscar el primer y segundo porcentaje (número seguido de %) después de la etiqueta 5µm
         percentages = re.findall(r"([\d\.]+)\s*%", text[start_pos:])
         valid_percentages = [p for p in percentages if p != '.']
         if len(valid_percentages) > 0:
@@ -99,8 +98,12 @@ def extract_data_from_pdf(pdf_file):
         if len(valid_percentages) > 1:
             data["Tamaños menores a 2μm (0.002mm)"] = f"{valid_percentages[1]}%"
     
-    # 15. Material Pasante del Tamiz N° 200 por Lavado
-    match = re.search(r"([\d\.]+)\s*Material Pasante del Tamiz N[°º]?\s*200 por Lavado", text)
+    # 15. Material Pasante del Tamiz N° 200 por Lavado (Corregido)
+    # Busca el número que está entre "Material Pasante..." y la palabra "Peso" (para no confundirlo con el peso en gramos)
+    match = re.search(r"Material Pasante del Tamiz N[°º]?\s*200 por Lavado\s*(?:\(\s*%\s*\)\s*)?([\d\.]+)\s*(?:Peso|\(gr\)|$)", text)
+    if not match:
+        # Si no lo encuentra, busca el número que está ANTES de la frase "Material Pasante"
+        match = re.search(r"([\d\.]+)\s*Material Pasante del Tamiz N[°º]?\s*200 por Lavado", text)
     data["Material Pasante del Tamiz N° 200 por Lavado"] = match.group(1) if match else ""
     
     # 16. Contenido de Humedad (RESULTADO)

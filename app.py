@@ -98,14 +98,11 @@ def extract_data_from_pdf(pdf_file):
         if len(valid_percentages) > 1:
             data["Tamaños menores a 2μm (0.002mm)"] = f"{valid_percentages[1]}%"
     
-    # 15. Material Pasante del Tamiz N° 200 por Lavado (Corregido)
-    # Prioridad 1: Sección CBR (Formato lineal confiable: "Pasante Tamiz N°200 (%) 85.0")
+    # 15. Material Pasante del Tamiz N° 200 por Lavado
     match = re.search(r"Pasante Tamiz N[°º]?\s*200\s*\(?\s*%\s*\)?\s*([\d\.]+)", text)
     if not match:
-        # Prioridad 2: Sección de Tamizado (Valor pasante final de la malla 200)
         match = re.search(r"N[°º]?\s*200\s+0\.075\s+[\d\.]+\s+[\d\.]+\s+([\d\.]+)", text)
     if not match:
-        # Prioridad 3: Buscar el número inmediatamente ANTES de la frase "Material Pasante"
         match = re.search(r"([\d\.]+)\s*Material Pasante del Tamiz N[°º]?\s*200 por Lavado", text)
     
     data["Material Pasante del Tamiz N° 200 por Lavado"] = match.group(1) if match else ""
@@ -118,17 +115,47 @@ def extract_data_from_pdf(pdf_file):
     match = re.search(r"RESULTADO\s+(ACEPTABLE|NO ACEPTABLE)", text, re.IGNORECASE)
     data["RESULTADO"] = match.group(1).upper() if match else ""
     
-    # 18. SALES SOLUBLES TOTALES(%)
-    match = re.search(r"SALES SOLUBLES TOTALES\s*\(%\)\s*([\d\.]+)", text)
-    data["SALES SOLUBLES TOTALES(%)"] = match.group(1) if match else ""
+    # 18, 19 y 20. SALES SOLUBLES, CLORUROS y SULFATOS (Corregido)
+    # Buscamos el bloque de cada ensayo y extraemos el número que sigue a "Profundidad (m)"
     
-    # 19. CLORUROS
-    match = re.search(r"CLORUROS EXPRESADOS COMO IÓN Cl -\s*\(ppm\)\s*([\d\.]+)", text)
-    data["CLORUROS EXPRESADOS COMO IÓN Cl -"] = match.group(1) if match else ""
-    
-    # 20. SULFATOS
-    match = re.search(r"SULFATOS EXPRESADOS COMO IÓN SO4\s*\(ppm\)\s*([\d\.]+)", text)
-    data["SULFATOS EXPRESADOS COMO IÓN SO4("] = match.group(1) if match else ""
+    # SALES SOLUBLES TOTALES(%)
+    match = re.search(r"SALES SOLUBLES TOTALES\s*\(%\)\s*(.*?)(?:CLORUROS EXPRESADOS|NTP 339\.177)", text)
+    if match:
+        block = match.group(1)
+        val_match = re.search(r"Profundidad \(m\):\s*\d+\.\d+\s*-\s*\d+\.\d+\s+([\d\.]+)", block)
+        if val_match:
+            data["SALES SOLUBLES TOTALES(%)"] = val_match.group(1)
+        else:
+            nums = re.findall(r"[\d\.]+", block)
+            if nums: data["SALES SOLUBLES TOTALES(%)"] = nums[-1]
+    else:
+        data["SALES SOLUBLES TOTALES(%)"] = ""
+
+    # CLORUROS
+    match = re.search(r"CLORUROS EXPRESADOS COMO IÓN Cl -\s*\(ppm\)\s*(.*?)(?:SULFATOS EXPRESADOS|NTP 339\.178)", text)
+    if match:
+        block = match.group(1)
+        val_match = re.search(r"Profundidad \(m\):\s*\d+\.\d+\s*-\s*\d+\.\d+\s+([\d\.]+)", block)
+        if val_match:
+            data["CLORUROS EXPRESADOS COMO IÓN Cl -"] = val_match.group(1)
+        else:
+            nums = re.findall(r"[\d\.]+", block)
+            if nums: data["CLORUROS EXPRESADOS COMO IÓN Cl -"] = nums[-1]
+    else:
+        data["CLORUROS EXPRESADOS COMO IÓN Cl -"] = ""
+
+    # SULFATOS
+    match = re.search(r"SULFATOS EXPRESADOS COMO IÓN SO4\s*\(ppm\)\s*(.*?)(?:DATO:|M\.D\.S)", text)
+    if match:
+        block = match.group(1)
+        val_match = re.search(r"Profundidad \(m\):\s*\d+\.\d+\s*-\s*\d+\.\d+\s+([\d\.]+)", block)
+        if val_match:
+            data["SULFATOS EXPRESADOS COMO IÓN SO4("] = val_match.group(1)
+        else:
+            nums = re.findall(r"[\d\.]+", block)
+            if nums: data["SULFATOS EXPRESADOS COMO IÓN SO4("] = nums[-1]
+    else:
+        data["SULFATOS EXPRESADOS COMO IÓN SO4("] = ""
     
     # 21. MDS
     match = re.search(r"MDS\s+([\d\.]+)\s*gr/cm³", text)

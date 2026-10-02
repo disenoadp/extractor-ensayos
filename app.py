@@ -68,17 +68,25 @@ def extract_data_from_pdf(pdf_file):
     data["ASTM D 3282, \"Clasificación para el uso en vías transporte\" (AASHTO)"] = match.group(1) if match else ""
     
     # 10. Clasificación SUCS (Código de 2 letras)
-    # Busca la palabra SUCS, luego salta cualquier carácter hasta encontrar un código de 2 letras mayúsculas
     match = re.search(r"SUCS\)\s*.*?\b([A-Z]{2})\b", text)
     if not match:
-        # Fallback si está en la sección de Proctor/CBR
         match = re.search(r"Clasif\.?\s*SUCS\s*[:.]?\s*([A-Z]{2})\b", text)
     data["ASTM D 2487_Codigo"] = match.group(1) if match else ""
     
-    # 11. Descripción SUCS
-    # Ampliamos los patrones de descripciones de suelos para cubrir más casos
-    match = re.search(r"(Arcilla de (?:alta|baja) plasticidad(?: con arena)?|Arena arcillosa|Limo arcilloso|Limo de (?:alta|baja) plasticidad|Arcilla limosa|Arena limosa|Grava arcillosa|Grava bien graduada|Grava mal graduada|Arena bien graduada|Arena mal graduada)", text, re.IGNORECASE)
-    data["ASTM D 2487_Descripcion"] = match.group(1) if match else ""
+    # 11. Descripción SUCS (Mejorado para capturar cualquier variación de texto)
+    # Busca un texto que empiece con Arcilla, Arena, Limo o Grava y capture todo hasta que encuentre una malla (N° o número decimal)
+    match = re.search(r"\b((?:Arcilla|Limo|Arena|Grava)\s+(?:de\s+(?:alta|baja)\s+plasticidad|arcillosa|limosa|inorgánica|orgánica|bien\s+graduada|mal\s+graduada|con\s+finos|con\s+arena)[\w\sáéíóú,]+)", text, re.IGNORECASE)
+    
+    if match:
+        # Limpiar el final de la descripción por si se coló algún número o letra de más
+        descripcion = match.group(1).strip()
+        # Quitar números o porcentajes que se hayan pegado al final
+        descripcion = re.sub(r'[\d%].*$', '', descripcion).strip()
+        data["ASTM D 2487_Descripcion"] = descripcion
+    else:
+        # Si no encuentra con el patrón enriquecido, buscar de forma simple para no dejarlo vacío
+        match_simple = re.search(r"documento\s+([A-Za-záéíóú\s,]+?)\s+(?:N[°º]?\s*\d|MALLAS|ASTM|PASA)", text, re.IGNORECASE)
+        data["ASTM D 2487_Descripcion"] = match_simple.group(1).strip() if match_simple else ""
     
     # 12. Cont. de humedad
     match = re.search(r"Cont\. de humedad\s*:?\s*([\d\.]+)\s*%?", text)

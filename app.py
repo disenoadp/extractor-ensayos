@@ -114,41 +114,31 @@ def extract_data_from_pdf(pdf_file):
     match = re.search(r"RESULTADO\s+(ACEPTABLE|NO ACEPTABLE)", text, re.IGNORECASE)
     data["RESULTADO"] = match.group(1).upper() if match else ""
     
-    # 18, 19 y 20. SALES SOLUBLES, CLORUROS y SULFATOS (Corregido de manera definitiva)
-    # Se usa un patrón estricto para la profundidad: 1.70 - 4.00 (sin importar espacios), y luego el resultado.
-    
-    # SALES SOLUBLES TOTALES(%)
-    idx = text.rfind("SALES SOLUBLES")
-    if idx != -1:
-        sub_text = text[idx:]
-        match = re.search(r"Profundidad \(m\):\s*\d+(?:\.\d+)?\s*-\s*\d+(?:\.\d+)?\s*(\d+(?:\.\d+)?)", sub_text)
-        if not match:
-            match = re.search(r"SALES SOLUBLES TOTALES\s*\(%\)\s*(\d+\.\d+)", sub_text)
-        data["SALES SOLUBLES TOTALES(%)"] = match.group(1) if match else ""
-    else:
-        data["SALES SOLUBLES TOTALES(%)"] = ""
+    # 18, 19 y 20. SALES SOLUBLES, CLORUROS y SULFATOS (Corregido: Limpieza de espacios en decimales)
+    def get_chem_val(full_text, title):
+        idx = full_text.rfind(title)
+        if idx != -1:
+            sub_text = full_text[idx:]
+            # Encontrar la línea de Profundidad
+            match_depth = re.search(r"Profundidad \(m\):\s*[\d\.]+\s*-\s*[\d\.]+", sub_text)
+            if match_depth:
+                search_area = sub_text[match_depth.end():]
+                # Capturar cualquier secuencia de números, puntos y espacios (para arreglar 0 . 0506)
+                num_match = re.search(r"(\d[\d\s\.]*\d|\d)", search_area)
+                if num_match:
+                    val = num_match.group(1).replace(" ", "")
+                    if val.endswith('.'):
+                        val = val[:-1]
+                    return val
+            # Fallback: buscar el primer número decimal o entero del bloque
+            num_match = re.search(r"(\d+\.\d+|\d+)", sub_text)
+            if num_match:
+                return num_match.group(1)
+        return ""
 
-    # CLORUROS
-    idx = text.rfind("CLORUROS EXPRESADOS")
-    if idx != -1:
-        sub_text = text[idx:]
-        match = re.search(r"Profundidad \(m\):\s*\d+(?:\.\d+)?\s*-\s*\d+(?:\.\d+)?\s*(\d+(?:\.\d+)?)", sub_text)
-        if not match:
-            match = re.search(r"CLORUROS EXPRESADOS COMO IÓN Cl -\s*\(ppm\)\s*(\d+)", sub_text)
-        data["CLORUROS EXPRESADOS COMO IÓN Cl -"] = match.group(1) if match else ""
-    else:
-        data["CLORUROS EXPRESADOS COMO IÓN Cl -"] = ""
-
-    # SULFATOS
-    idx = text.rfind("SULFATOS EXPRESADOS")
-    if idx != -1:
-        sub_text = text[idx:]
-        match = re.search(r"Profundidad \(m\):\s*\d+(?:\.\d+)?\s*-\s*\d+(?:\.\d+)?\s*(\d+(?:\.\d+)?)", sub_text)
-        if not match:
-            match = re.search(r"SULFATOS EXPRESADOS COMO IÓN SO4\s*\(ppm\)\s*(\d+)", sub_text)
-        data["SULFATOS EXPRESADOS COMO IÓN SO4("] = match.group(1) if match else ""
-    else:
-        data["SULFATOS EXPRESADOS COMO IÓN SO4("] = ""
+    data["SALES SOLUBLES TOTALES(%)"] = get_chem_val(text, "SALES SOLUBLES")
+    data["CLORUROS EXPRESADOS COMO IÓN Cl -"] = get_chem_val(text, "CLORUROS EXPRESADOS")
+    data["SULFATOS EXPRESADOS COMO IÓN SO4("] = get_chem_val(text, "SULFATOS EXPRESADOS")
     
     # 21. MDS
     match = re.search(r"MDS\s+([\d\.]+)\s*gr/cm³", text)

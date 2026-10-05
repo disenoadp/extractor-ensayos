@@ -114,24 +114,21 @@ def extract_data_from_pdf(pdf_file):
     match = re.search(r"RESULTADO\s+(ACEPTABLE|NO ACEPTABLE)", text, re.IGNORECASE)
     data["RESULTADO"] = match.group(1).upper() if match else ""
     
-    # 18, 19 y 20. SALES SOLUBLES, CLORUROS y SULFATOS (Lógica a prueba de comas y espacios)
+    # 18, 19 y 20. SALES SOLUBLES, CLORUROS y SULFATOS (Búsqueda anclada a 50 caracteres)
     def get_chem_val(full_text, title):
-        idx = full_text.rfind(title)
-        if idx != -1:
-            # Acotar el bloque a 500 caracteres para no leer el siguiente ensayo
-            sub_text = full_text[idx:idx+500]
-            # Encontrar la línea de "Profundidad (m): X.XX - Y.YY"
-            match_depth = re.search(r"Profundidad\s*\(m\):\s*\d+(?:\.\d+)?\s*-\s*\d+(?:\.\d+)?", sub_text)
-            if match_depth:
-                search_area = sub_text[match_depth.end():]
-                # Buscar el primer número disponible, saltando comas, espacios, etc.
-                num_match = re.search(r"\d[\d\s\.]*\d|\d", search_area)
-                if num_match:
-                    val = num_match.group(0).replace(" ", "")
-                    val = val.rstrip('.')
-                    # Validar que sea un número bien formado antes de retornarlo
-                    if re.match(r"^\d+(?:\.\d+)?$", val):
-                        return val
+        # Buscar la primera ocurrencia del título, luego la primera línea de "Profundidad"
+        pattern = rf"{re.escape(title)}.*?Profundidad.*?-\s*[\d\.]+"
+        match = re.search(pattern, full_text, re.DOTALL)
+        if match:
+            # Tomar los 50 caracteres inmediatamente después de la línea de profundidad
+            search_area = full_text[match.end():match.end()+50]
+            # Buscar el primer número en esa pequeña zona (permite espacios internos)
+            num_match = re.search(r"\d[\d\s\.]*\d|\d", search_area)
+            if num_match:
+                val = num_match.group(0).replace(" ", "").rstrip('.')
+                # Validar que sea un número bien formado antes de retornarlo
+                if re.match(r"^\d+(?:\.\d+)?$", val):
+                    return val
         return ""
 
     data["SALES SOLUBLES TOTALES(%)"] = get_chem_val(text, "SALES SOLUBLES")
@@ -194,4 +191,3 @@ if uploaded_files and len(uploaded_files) > 0:
             file_name="Resumen_Ensayos_Pavimentos_Consolidado.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
-    

@@ -114,7 +114,7 @@ def extract_data_from_pdf(pdf_file):
     match = re.search(r"RESULTADO\s+(ACEPTABLE|NO ACEPTABLE)", text, re.IGNORECASE)
     data["RESULTADO"] = match.group(1).upper() if match else ""
     
-    # 18, 19 y 20. SALES SOLUBLES, CLORUROS y SULFATOS (Limpieza de bloque a prueba de fallos)
+    # 18, 19 y 20. SALES SOLUBLES, CLORUROS y SULFATOS (Limpieza a prueba de fallos)
     def get_chem_val(full_text, title):
         idx = full_text.rfind(title)
         if idx != -1:
@@ -162,6 +162,16 @@ def extract_data_from_pdf(pdf_file):
     # 22. OCH
     match = re.search(r"OCH\s+([\d\.]+)\s*%", text)
     data["OCH"] = f"{match.group(1)}%" if match else ""
+    
+    # 23 y 24. CBR 0.1" Penetración (100% y 95%)
+    # Busca el bloque "100% A B 95% C D" y extrae A (100%) y C (95%)
+    match_cbr = re.search(r"100%\s+([\d\.]+)\s+[\d\.]+\s+95%\s+([\d\.]+)", text)
+    if match_cbr:
+        data["CBR 0.1\" 100%"] = match_cbr.group(1)
+        data["CBR 0.1\" 95%"] = match_cbr.group(2)
+    else:
+        data["CBR 0.1\" 100%"] = ""
+        data["CBR 0.1\" 95%"] = ""
     
     return data
 

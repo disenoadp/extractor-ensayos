@@ -114,31 +114,41 @@ def extract_data_from_pdf(pdf_file):
     match = re.search(r"RESULTADO\s+(ACEPTABLE|NO ACEPTABLE)", text, re.IGNORECASE)
     data["RESULTADO"] = match.group(1).upper() if match else ""
     
-    # 18, 19 y 20. SALES SOLUBLES, CLORUROS y SULFATOS (Lógica Estricta Post-Profundidad)
+    # 18, 19 y 20. SALES SOLUBLES, CLORUROS y SULFATOS (Limpieza de bloque a prueba de fallos)
     def get_chem_val(full_text, title):
         idx = full_text.rfind(title)
         if idx != -1:
-            # Tomar un bloque amplio para asegurar de abarcar la línea de profundidad
-            sub_text = full_text[idx:idx+500]
+            # Acotar el bloque hasta las palabras de finalización
+            end_keywords = ["COMENTARIOS", "OBSERVACIONES", "Ejecucion", "Ejecución", "El solicitante", "CONDICIONES"]
+            end_idx = len(full_text)
+            for kw in end_keywords:
+                kw_idx = full_text.find(kw, idx)
+                if kw_idx != -1 and kw_idx < end_idx:
+                    end_idx = kw_idx
             
-            # Patrón ESTRICTO para la profundidad: "Profundidad (m): X.XX - Y.YY" (permite espacios internos como 1 . 70)
-            depth_match = re.search(r"Profundidad\s*\(m\):\s*\d+(?:\s*\.\s*\d+)?\s*-\s*\d+(?:\s*\.\s*\d+)?", sub_text)
-            if depth_match:
-                # Área de búsqueda justo DESPUÉS de la línea de profundidad
-                search_area = sub_text[depth_match.end():]
+            # Si no encuentra final, limitar a 500 caracteres
+            if end_idx == len(full_text) or end_idx - idx > 500:
+                end_idx = idx + 500
                 
-                # Capturar el primer bloque que contenga dígitos, puntos y espacios (ej: "0 . 0506" o "120")
-                num_match = re.match(r"\s*([\d\s\.]+)", search_area)
-                if num_match:
-                    # Limpiar espacios internos y puntos en los bordes
-                    val = num_match.group(1).replace(" ", "").strip('.')
-                    
-                    # Validar que sea un número real y no un punto suelto
-                    try:
-                        float(val)
-                        return val
-                    except:
-                        pass
+            block = full_text[idx:end_idx]
+            
+            # Limpiar la "basura" (Identificadores, Coordenadas UTM y Profundidad)
+            block = re.sub(r"\b\d{4,}\.\d+\b", "", block) # UTM con decimales
+            block = re.sub(r"\b\d{6,}\b", "", block)      # UTM enteros
+            # Corregido: ahora elimina identificadores de 2 o más letras (AP-01, M-01, etc.)
+            block = re.sub(r"[A-Za-z]{1,3}-\d+", "", block)       
+            # Corregido: ahora la profundidad tolera espacios internos (ej: 4 . 00)
+            block = re.sub(r"Profundidad\s*\(m\):\s*[\d\s\.]+-\s*[\d\s\.]+", "", block)
+            
+            # Extraer todos los números que quedaron limpios
+            nums = re.findall(r"\d+\.\d+|\d+", block)
+            
+            # Filtrar años (ej. 2026)
+            valid_nums = [n for n in nums if not (len(n) == 4 and n.startswith('20'))]
+            
+            # Corregido: el resultado es el ÚLTIMO número limpio en la lista (ya que la profundidad e ID vienen antes)
+            if valid_nums:
+                return valid_nums[-1]
         return ""
 
     data["SALES SOLUBLES TOTALES(%)"] = get_chem_val(text, "SALES SOLUBLES")

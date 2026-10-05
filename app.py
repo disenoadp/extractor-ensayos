@@ -114,36 +114,28 @@ def extract_data_from_pdf(pdf_file):
     match = re.search(r"RESULTADO\s+(ACEPTABLE|NO ACEPTABLE)", text, re.IGNORECASE)
     data["RESULTADO"] = match.group(1).upper() if match else ""
     
-    # 18, 19 y 20. SALES SOLUBLES, CLORUROS y SULFATOS (Limpieza de bloque a prueba de fallos)
+    # 18, 19 y 20. SALES SOLUBLES, CLORUROS y SULFATOS (Limpieza a prueba de fallos)
     def get_chem_val(full_text, title):
         idx = full_text.rfind(title)
         if idx != -1:
-            # Acotar el bloque hasta las palabras de finalización
-            end_keywords = ["COMENTARIOS", "OBSERVACIONES", "Ejecucion", "Ejecución", "El solicitante", "CONDICIONES"]
-            end_idx = len(full_text)
-            for kw in end_keywords:
-                kw_idx = full_text.find(kw, idx)
-                if kw_idx != -1 and kw_idx < end_idx:
-                    end_idx = kw_idx
+            # Tomar un bloque de 500 caracteres
+            block = full_text[idx:idx+500]
             
-            # Si no encuentra final, limitar a 500 caracteres
-            if end_idx == len(full_text) or end_idx - idx > 500:
-                end_idx = idx + 500
-                
-            block = full_text[idx:end_idx]
-            
-            # Limpiar la "basura" (Identificadores, Coordenadas UTM y Profundidad)
+            # Limpiar basura: Coordenadas UTM, Identificadores (AP-01, M-01) y Profundidad
             block = re.sub(r"\b\d{4,}\.\d+\b", "", block) # UTM con decimales
             block = re.sub(r"\b\d{6,}\b", "", block)      # UTM enteros
-            block = re.sub(r"[A-Z]-\d+", "", block)       # Identificadores como M-01
+            block = re.sub(r"[A-Za-z]+-\d+", "", block)   # Corregido: ahora elimina AP-01 y M-01
             block = re.sub(r"Profundidad\s*\(m\):\s*\d+(?:\.\d+)?\s*-\s*\d+(?:\.\d+)?", "", block)
             
             # Extraer todos los números que quedaron limpios
             nums = re.findall(r"\d+\.\d+|\d+", block)
             
-            # El resultado es el primer número que queda en la lista
-            if nums:
-                return nums[0]
+            # Filtrar años (ej. 2026, 2025) por si la fecha de emisión se cruzó
+            valid_nums = [n for n in nums if not (len(n) == 4 and n.startswith('20'))]
+            
+            # El primer número limpio que queda es el resultado real
+            if valid_nums:
+                return valid_nums[0]
         return ""
 
     data["SALES SOLUBLES TOTALES(%)"] = get_chem_val(text, "SALES SOLUBLES")

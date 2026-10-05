@@ -114,21 +114,36 @@ def extract_data_from_pdf(pdf_file):
     match = re.search(r"RESULTADO\s+(ACEPTABLE|NO ACEPTABLE)", text, re.IGNORECASE)
     data["RESULTADO"] = match.group(1).upper() if match else ""
     
-    # 18, 19 y 20. SALES SOLUBLES, CLORUROS y SULFATOS (Búsqueda anclada a 50 caracteres)
+    # 18, 19 y 20. SALES SOLUBLES, CLORUROS y SULFATOS (Limpieza de bloque a prueba de fallos)
     def get_chem_val(full_text, title):
-        # Buscar la primera ocurrencia del título, luego la primera línea de "Profundidad"
-        pattern = rf"{re.escape(title)}.*?Profundidad.*?-\s*[\d\.]+"
-        match = re.search(pattern, full_text, re.DOTALL)
-        if match:
-            # Tomar los 50 caracteres inmediatamente después de la línea de profundidad
-            search_area = full_text[match.end():match.end()+50]
-            # Buscar el primer número en esa pequeña zona (permite espacios internos)
-            num_match = re.search(r"\d[\d\s\.]*\d|\d", search_area)
-            if num_match:
-                val = num_match.group(0).replace(" ", "").rstrip('.')
-                # Validar que sea un número bien formado antes de retornarlo
-                if re.match(r"^\d+(?:\.\d+)?$", val):
-                    return val
+        idx = full_text.rfind(title)
+        if idx != -1:
+            # Acotar el bloque hasta las palabras de finalización
+            end_keywords = ["COMENTARIOS", "OBSERVACIONES", "Ejecucion", "Ejecución", "El solicitante", "CONDICIONES"]
+            end_idx = len(full_text)
+            for kw in end_keywords:
+                kw_idx = full_text.find(kw, idx)
+                if kw_idx != -1 and kw_idx < end_idx:
+                    end_idx = kw_idx
+            
+            # Si no encuentra final, limitar a 500 caracteres
+            if end_idx == len(full_text) or end_idx - idx > 500:
+                end_idx = idx + 500
+                
+            block = full_text[idx:end_idx]
+            
+            # Limpiar la "basura" (Identificadores, Coordenadas UTM y Profundidad)
+            block = re.sub(r"\b\d{4,}\.\d+\b", "", block) # UTM con decimales
+            block = re.sub(r"\b\d{6,}\b", "", block)      # UTM enteros
+            block = re.sub(r"[A-Z]-\d+", "", block)       # Identificadores como M-01
+            block = re.sub(r"Profundidad\s*\(m\):\s*\d+(?:\.\d+)?\s*-\s*\d+(?:\.\d+)?", "", block)
+            
+            # Extraer todos los números que quedaron limpios
+            nums = re.findall(r"\d+\.\d+|\d+", block)
+            
+            # El resultado es el primer número que queda en la lista
+            if nums:
+                return nums[0]
         return ""
 
     data["SALES SOLUBLES TOTALES(%)"] = get_chem_val(text, "SALES SOLUBLES")

@@ -98,12 +98,16 @@ def extract_data_from_pdf(pdf_file):
         if len(valid_percentages) > 1:
             data["Tamaños menores a 2μm (0.002mm)"] = f"{valid_percentages[1]}%"
     
-    # 15. Material Pasante del Tamiz N° 200 por Lavado
-    match = re.search(r"Pasante Tamiz N[°º]?\s*200\s*\(?\s*%\s*\)?\s*([\d\.]+)", text)
+    # 15. Material Pasante del Tamiz N° 200 por Lavado (Corregido)
+    # Prioridad 1: Buscar el número inmediatamente ANTES de la frase (Formato del ensayo de Lavado)
+    match = re.search(r"([\d\.]+)\s*Material Pasante del Tamiz N[°º]?\s*200 por Lavado", text)
     if not match:
-        match = re.search(r"N[°º]?\s*200\s+0\.075\s+[\d\.]+\s+[\d\.]+\s+([\d\.]+)", text)
+        # Prioridad 2: Buscar el número inmediatamente DESPUÉS de la frase
+        match = re.search(r"Material Pasante del Tamiz N[°º]?\s*200 por Lavado\s*\(?\s*%\s*\)?\s*([\d\.]+)", text)
     if not match:
-        match = re.search(r"([\d\.]+)\s*Material Pasante del Tamiz N[°º]?\s*200 por Lavado", text)
+        # Prioridad 3: Sección CBR (Formato lineal: "Pasante Tamiz N°200 (%) 85.0")
+        match = re.search(r"Pasante Tamiz N[°º]?\s*200\s*\(?\s*%\s*\)?\s*([\d\.]+)", text)
+        
     data["Material Pasante del Tamiz N° 200 por Lavado"] = match.group(1) if match else ""
     
     # 16. Contenido de Humedad (RESULTADO)
@@ -164,7 +168,6 @@ def extract_data_from_pdf(pdf_file):
     data["OCH"] = f"{match.group(1)}%" if match else ""
     
     # 23 y 24. CBR 0.1" Penetración (100% y 95%)
-    # Busca el bloque "100% A B 95% C D" y extrae A (100%) y C (95%)
     match_cbr = re.search(r"100%\s+([\d\.]+)\s+[\d\.]+\s+95%\s+([\d\.]+)", text)
     if match_cbr:
         data["CBR 0.1\" 100%"] = match_cbr.group(1)

@@ -98,14 +98,11 @@ def extract_data_from_pdf(pdf_file):
         if len(valid_percentages) > 1:
             data["Tamaños menores a 2μm (0.002mm)"] = f"{valid_percentages[1]}%"
     
-    # 15. Material Pasante del Tamiz N° 200 por Lavado (Corregido con Filtro Matemático)
-    # Busca un número menor o igual a 100 (porcentaje) antes de la frase para no confundirlo con los pesos en gramos (350.0, 584.0)
-    match = re.search(r"((?:100|\d{1,2})(?:\.\d+)?)\s*Material Pasante del Tamiz N[°º]?\s*200 por Lavado", text)
+    # 15. Material Pasante del Tamiz N° 200 por Lavado (Corregido para saltar los pesos en gramos)
+    # Busca la frase, luego busca el símbolo (%) y captura el número que está inmediatamente después.
+    match = re.search(r"Material Pasante del Tamiz N[°º]?\s*200 por Lavado[\s\S]*?\(%\)\s*([\d\.]+)", text)
     if not match:
-        # Prioridad 2: Buscar el porcentaje inmediatamente DESPUÉS de la frase
-        match = re.search(r"Material Pasante del Tamiz N[°º]?\s*200 por Lavado\s*(?:\(%\))?\s*((?:100|\d{1,2})(?:\.\d+)?)", text)
-    if not match:
-        # Prioridad 3: Sección CBR (Formato lineal: "Pasante Tamiz N°200 (%) 85.0")
+        # Prioridad 2: Sección CBR (Formato lineal: "Pasante Tamiz N°200 (%) 85.0")
         match = re.search(r"Pasante Tamiz N[°º]?\s*200\s*\(?\s*%\s*\)?\s*([\d\.]+)", text)
         
     data["Material Pasante del Tamiz N° 200 por Lavado"] = match.group(1) if match else ""

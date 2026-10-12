@@ -99,7 +99,6 @@ def extract_data_from_pdf(pdf_file):
             data["Tamaños menores a 2μm (0.002mm)"] = f"{valid_percentages[1]}%"
     
     # 15. Material Pasante del Tamiz N° 200 por Lavado (Corregido para saltar los pesos en gramos)
-    # Busca la frase, luego busca el símbolo (%) y captura el número que está inmediatamente después.
     match = re.search(r"Material Pasante del Tamiz N[°º]?\s*200 por Lavado[\s\S]*?\(%\)\s*([\d\.]+)", text)
     if not match:
         # Prioridad 2: Sección CBR (Formato lineal: "Pasante Tamiz N°200 (%) 85.0")
@@ -170,6 +169,11 @@ def extract_data_from_pdf(pdf_file):
     else:
         data["CBR 0.1\" 100%"] = ""
         data["CBR 0.1\" 95%"] = ""
+    
+    # 25. Expansion (%)
+    # Busca explícitamente "Expansion (%)" seguido de su valor
+    match_exp = re.search(r"Expansion\s*\(%\)\s*([\d\.]+)", text, re.IGNORECASE)
+    data["Expansion (%)"] = match_exp.group(1) if match_exp else ""
     
     return data
 

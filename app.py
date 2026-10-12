@@ -98,12 +98,12 @@ def extract_data_from_pdf(pdf_file):
         if len(valid_percentages) > 1:
             data["Tamaños menores a 2μm (0.002mm)"] = f"{valid_percentages[1]}%"
     
-    # 15. Material Pasante del Tamiz N° 200 por Lavado (Corregido)
-    # Prioridad 1: Buscar el número inmediatamente ANTES de la frase (Formato del ensayo de Lavado)
-    match = re.search(r"([\d\.]+)\s*Material Pasante del Tamiz N[°º]?\s*200 por Lavado", text)
+    # 15. Material Pasante del Tamiz N° 200 por Lavado (Corregido con Filtro Matemático)
+    # Busca un número menor o igual a 100 (porcentaje) antes de la frase para no confundirlo con los pesos en gramos (350.0, 584.0)
+    match = re.search(r"((?:100|\d{1,2})(?:\.\d+)?)\s*Material Pasante del Tamiz N[°º]?\s*200 por Lavado", text)
     if not match:
-        # Prioridad 2: Buscar el número inmediatamente DESPUÉS de la frase
-        match = re.search(r"Material Pasante del Tamiz N[°º]?\s*200 por Lavado\s*\(?\s*%\s*\)?\s*([\d\.]+)", text)
+        # Prioridad 2: Buscar el porcentaje inmediatamente DESPUÉS de la frase
+        match = re.search(r"Material Pasante del Tamiz N[°º]?\s*200 por Lavado\s*(?:\(%\))?\s*((?:100|\d{1,2})(?:\.\d+)?)", text)
     if not match:
         # Prioridad 3: Sección CBR (Formato lineal: "Pasante Tamiz N°200 (%) 85.0")
         match = re.search(r"Pasante Tamiz N[°º]?\s*200\s*\(?\s*%\s*\)?\s*([\d\.]+)", text)
@@ -139,9 +139,7 @@ def extract_data_from_pdf(pdf_file):
             # Limpiar la "basura" (Identificadores, Coordenadas UTM y Profundidad)
             block = re.sub(r"\b\d{4,}\.\d+\b", "", block) # UTM con decimales
             block = re.sub(r"\b\d{6,}\b", "", block)      # UTM enteros
-            # Corregido: ahora elimina identificadores de 2 o más letras (AP-01, M-01, etc.)
-            block = re.sub(r"[A-Za-z]{1,3}-\d+", "", block)       
-            # Corregido: ahora la profundidad tolera espacios internos (ej: 4 . 00)
+            block = re.sub(r"[A-Za-z]{1,3}-\d+", "", block)       # Identificadores AP-01, M-01
             block = re.sub(r"Profundidad\s*\(m\):\s*[\d\s\.]+-\s*[\d\s\.]+", "", block)
             
             # Extraer todos los números que quedaron limpios
@@ -150,7 +148,7 @@ def extract_data_from_pdf(pdf_file):
             # Filtrar años (ej. 2026)
             valid_nums = [n for n in nums if not (len(n) == 4 and n.startswith('20'))]
             
-            # Corregido: el resultado es el ÚLTIMO número limpio en la lista (ya que la profundidad e ID vienen antes)
+            # El resultado es el ÚLTIMO número limpio en la lista
             if valid_nums:
                 return valid_nums[-1]
         return ""
